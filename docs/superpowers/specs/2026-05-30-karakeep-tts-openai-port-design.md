@@ -150,6 +150,6 @@ Removed from upstream: `elevenlabs`, `rich` (unused), `requests` is moved to a d
 
 ## Open Questions / Out of Scope
 
-- **Overcast 2FA:** if your Overcast account has 2FA enabled, this design will not work. Confirm before implementation.
+- **Overcast 2FA:** confirmed not enabled — clean email+password login. The unofficial upload flow will work.
 - **Multi-list watching:** not in scope (single list only, per current decision).
 - **Audio post-processing** (normalization, silence trimming between chunks): not in scope; revisit if quality issues appear.
