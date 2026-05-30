@@ -1,8 +1,14 @@
 """Text-to-speech: chunking, OpenAI calls, MP3 concat, ID3 tagging."""
 from __future__ import annotations
+import datetime
+import random
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from mutagen.easyid3 import EasyID3
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -101,3 +107,36 @@ def synthesize_article(
                     f.write(piece)
         paths.append(path)
     return paths
+
+
+def concat_mp3s(inputs: list[Path], output: Path) -> None:
+    """Concatenate MP3 files via ffmpeg's concat demuxer."""
+    if not inputs:
+        raise ValueError("No input files to concatenate")
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
+        list_path = Path(f.name)
+        for p in inputs:
+            f.write(f"file '{p.absolute()}'\n")
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
+             "-i", str(list_path), "-c", "copy", str(output)],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"ffmpeg concat failed: {result.stderr}")
+    finally:
+        list_path.unlink(missing_ok=True)
+
+
+def tag_mp3(path: Path, *, title: str) -> None:
+    audio = EasyID3(str(path))
+    audio["title"] = title
+    audio["date"] = datetime.datetime.now().isoformat()
+    audio.save()
+
+
+def pick_voice(voices: list[str]) -> str:
+    if not voices:
+        raise ValueError("Voice list is empty")
+    return random.choice(voices)
