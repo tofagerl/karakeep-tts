@@ -1,0 +1,22 @@
+services:
+  karakeep-tts:
+    build: .
+    image: karakeep-tts:latest
+    restart: unless-stopped
+    environment:
+      # Required
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?required}
+      KARAKEEP_API_KEY: ${KARAKEEP_API_KEY:?required}
+      KARAKEEP_API_HOST: ${KARAKEEP_API_HOST:?required}
+      OVERCAST_EMAIL: ${OVERCAST_EMAIL:?required}
+      OVERCAST_PASSWORD: ${OVERCAST_PASSWORD:?required}
+      # Optional
+      BOOKMARK_LIST_NAME: ${BOOKMARK_LIST_NAME:-Instapaper}
+      OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-gpt-4o-mini-tts}
+      OPENAI_TTS_VOICES: ${OPENAI_TTS_VOICES:-}
+      OPENAI_TTS_INSTRUCTIONS: ${OPENAI_TTS_INSTRUCTIONS:-}
+      MAX_CHUNK_CHARS: ${MAX_CHUNK_CHARS:-3800}
+      SLEEP_INTERVAL: ${SLEEP_INTERVAL:-60}
+      HEALTHCHECK_URL: ${HEALTHCHECK_URL:-}
+    volumes:
+      - ./media:/data/media
