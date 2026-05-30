@@ -1,6 +1,11 @@
 """Text-to-speech: chunking, OpenAI calls, MP3 concat, ID3 tagging."""
 from __future__ import annotations
 import re
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 
 def chunk_text(text: str, max_chars: int = 3800) -> list[str]:
@@ -71,3 +76,28 @@ def _split_by_words(text: str, max_chars: int) -> list[str]:
     if current.strip():
         chunks.append(current.strip())
     return chunks
+
+
+def synthesize_article(
+    *,
+    client: "OpenAI",
+    chunks: list[str],
+    voice: str,
+    model: str,
+    instructions: str,
+    output_dir: Path,
+) -> list[Path]:
+    """Synthesize each chunk to MP3 in output_dir. Returns paths in order."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for i, chunk in enumerate(chunks):
+        path = output_dir / f"chunk_{i:03d}.mp3"
+        kwargs = dict(model=model, voice=voice, input=chunk, response_format="mp3")
+        if model == "gpt-4o-mini-tts":
+            kwargs["instructions"] = instructions
+        with client.audio.speech.with_streaming_response.create(**kwargs) as response:
+            with open(path, "wb") as f:
+                for piece in response.iter_bytes():
+                    f.write(piece)
+        paths.append(path)
+    return paths
