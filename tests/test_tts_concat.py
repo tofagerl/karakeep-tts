@@ -1,6 +1,11 @@
+import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+
+import pytest
+from mutagen.easyid3 import EasyID3
+
 from karakeep_tts.tts import concat_mp3s, tag_mp3, pick_voice
 
 
@@ -45,6 +50,29 @@ def test_tag_mp3_sets_title_and_date(tmp_path):
         date_calls = [c for c in instance.__setitem__.call_args_list if c.args[0] == "date"]
         assert len(date_calls) == 1
         instance.save.assert_called_once()
+
+
+def _make_real_mp3(path):
+    """Generate a tiny real MP3 (100ms of silence) using ffmpeg."""
+    subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-f", "lavfi",
+         "-i", "anullsrc=r=8000:cl=mono", "-t", "0.1",
+         "-c:a", "libmp3lame", "-b:a", "8k", "-y", str(path)],
+        check=True,
+    )
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+def test_tag_mp3_on_real_untagged_mp3(tmp_path):
+    """Regression: tag_mp3 must handle MP3s with no existing ID3v2 tag."""
+    mp3 = tmp_path / "real.mp3"
+    _make_real_mp3(mp3)
+    # No ID3 tag at this point
+    tag_mp3(mp3, title="Hello Test")
+    # Verify tag was written
+    audio = EasyID3(str(mp3))
+    assert audio["title"] == ["Hello Test"]
+    assert "date" in audio
 
 
 def test_pick_voice_returns_one_from_list():

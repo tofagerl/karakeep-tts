@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3NoHeaderError
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -130,7 +131,13 @@ def concat_mp3s(inputs: list[Path], output: Path) -> None:
 
 
 def tag_mp3(path: Path, *, title: str) -> None:
-    audio = EasyID3(str(path))
+    try:
+        audio = EasyID3(str(path))
+    except ID3NoHeaderError:
+        # No existing ID3v2 tag; create an empty one and reopen
+        audio = EasyID3()
+        audio.save(str(path))
+        audio = EasyID3(str(path))
     audio["title"] = title
     audio["date"] = datetime.datetime.now().isoformat()
     audio.save()

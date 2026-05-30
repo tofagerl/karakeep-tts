@@ -35,7 +35,7 @@ Pipeline is **idempotent**: if a process crashes between TTS and upload, the nex
 | `OVERCAST_EMAIL` | — | Yes | Overcast Premium account email |
 | `OVERCAST_PASSWORD` | — | Yes | Account password (no 2FA support) |
 | `BOOKMARK_LIST_NAME` | `Instapaper` | No | Karakeep list to watch |
-| `MEDIA_PATH` | `media` | No | Local MP3 backup folder |
+| `MEDIA_PATH` | `media` (Docker: `/data/media`) | No | Local MP3 backup folder. In Docker, mounted from `./media` on host. |
 | `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | No | Or `tts-1`, `tts-1-hd` |
 | `OPENAI_TTS_VOICES` | (all 10 voices) | No | Comma-separated list to randomize from |
 | `OPENAI_TTS_INSTRUCTIONS` | "Read in a clear, natural narrator voice." | No | Only used by `gpt-4o-mini-tts` |
