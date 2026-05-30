@@ -1,4 +1,3 @@
-import os
 import pytest
 from karakeep_tts.config import Config
 
