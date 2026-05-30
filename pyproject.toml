@@ -1,14 +1,31 @@
 [project]
 name = "karakeep-tts"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "Generate audio narrations of Karakeep bookmarks via OpenAI TTS, upload to Overcast."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "elevenlabs>=2.1.0",
+    "openai>=1.0.0",
+    "requests>=2.32.0",
     "html2text>=2025.4.15",
     "mutagen>=1.47.0",
     "python-dotenv>=1.1.0",
-    "rich>=14.0.0",
     "tqdm>=4.67.1",
+    "overcast-uploader @ git+https://github.com/tofagerl/overcast-uploader.git@681042d39d80c8f8cec7a0aadeff7fdfc7d950e5",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "responses>=0.25",
+]
+
+[project.scripts]
+karakeep-tts = "karakeep_tts.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["karakeep_tts*"]
