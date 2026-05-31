@@ -30,23 +30,42 @@ class Bookmark:
         try:
             content = data.get("content")
             if not isinstance(content, dict):
-                log.info("Skipping %s: content field is %r (type %s)",
-                         bm_id, content, type(content).__name__)
+                log.info("Skipping %s: content field is %r", bm_id, content)
                 return None
-            html = content.get("htmlContent")
-            url = content.get("url")
-            if not html or not url:
-                log.info("Skipping %s: content keys=%s, htmlContent=%s, url=%s",
-                         bm_id, sorted(content.keys()),
-                         "present" if html else f"{html!r}",
-                         "present" if url else f"{url!r}")
+
+            content_type = content.get("type")
+            if content_type == "link":
+                html = content.get("htmlContent")
+                url = content.get("url")
+                if not html or not url:
+                    crawl_status = content.get("crawlStatus")
+                    log.info("Skipping link %s: not yet crawled (crawlStatus=%r, htmlContent=%s)",
+                             bm_id, crawl_status, "present" if html else "null")
+                    return None
+                body = _html2text.handle(html)
+            elif content_type == "text":
+                body = content.get("text")
+                url = content.get("sourceUrl") or ""
+                if not body:
+                    log.info("Skipping text bookmark %s: empty text field", bm_id)
+                    return None
+            else:
+                # asset (pdf/image) and unknown not supported for TTS
+                log.info("Skipping %s: unsupported content type %r", bm_id, content_type)
                 return None
-            title = content.get("title") or content.get("description") or bm_id
+
+            # Bookmark-level title wins (user can override); fall back to content's title.
+            title = (
+                data.get("title")
+                or content.get("title")
+                or content.get("description")
+                or bm_id
+            )
             return cls(
                 id=data["id"],
                 title=title,
                 url=url,
-                text=_html2text.handle(html),
+                text=body,
                 description=content.get("description"),
             )
         except (KeyError, TypeError, AttributeError) as exc:
@@ -88,7 +107,8 @@ class KarakeepClient:
 
     def get_bookmarks(self, list_name: str) -> Iterator[Bookmark]:
         list_id = self.get_list_id(list_name)
-        data = self._request(f"lists/{list_id}/bookmarks")
+        # Karakeep 0.30.0+ defaults includeContent=false; we need it true for htmlContent/text.
+        data = self._request(f"lists/{list_id}/bookmarks?includeContent=true")
         for raw in data.get("bookmarks", []):
             try:
                 bm = Bookmark.from_api(raw)
