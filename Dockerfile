@@ -28,6 +28,8 @@ COPY --from=builder --chown=app:app /app/karakeep_tts /app/karakeep_tts
 
 ENV PATH="/app/.venv/bin:${PATH}"
 ENV MEDIA_PATH=/data/media
+# Unbuffered stdout/stderr so `docker compose logs -f` shows output immediately
+ENV PYTHONUNBUFFERED=1
 
 USER app
 VOLUME ["/data/media"]

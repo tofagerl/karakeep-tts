@@ -58,12 +58,14 @@ def main() -> None:
     while True:
         try:
             bookmarks = list(karakeep.get_bookmarks(cfg.bookmark_list_name))
+            log.info("Found %d processable bookmark(s) in %r", len(bookmarks), cfg.bookmark_list_name)
             for bm in tqdm(bookmarks, disable=not sys.stdout.isatty()):
                 try:
                     process_bookmark(bm, cfg=cfg, karakeep=karakeep, openai_client=openai_client)
                 except Exception as exc:
                     log.error("Failed to process bookmark %s (%s): %s", bm.id, bm.title, exc)
             ping_healthcheck(cfg.healthcheck_url)
+            log.info("Loop iteration complete; sleeping %ds", cfg.sleep_interval)
         except Exception as exc:
             log.exception("Loop iteration failed: %s", exc)
             ping_healthcheck(cfg.healthcheck_url, failure=True)

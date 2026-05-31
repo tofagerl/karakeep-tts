@@ -1,5 +1,6 @@
 """Per-bookmark orchestration. Idempotent: safe to re-run on partial failure."""
 from __future__ import annotations
+import logging
 import re
 import tempfile
 from pathlib import Path
@@ -15,6 +16,7 @@ from karakeep_tts.overcast import upload_to_overcast
 if TYPE_CHECKING:
     from openai import OpenAI
 
+log = logging.getLogger(__name__)
 _SAFE_RE = re.compile(r"[^A-Za-z0-9 _-]")
 
 
@@ -51,12 +53,16 @@ def process_bookmark(
     cfg.media_path.mkdir(parents=True, exist_ok=True)
 
     if mp3_path.exists() and marker_path.exists():
+        log.info("Bookmark %s already uploaded; deleting from Karakeep list", bm.id)
         karakeep.delete_bookmark(cfg.bookmark_list_name, bm.id)
         return
+
+    log.info("Processing bookmark %s: %r (%d chars)", bm.id, bm.title, len(bm.text))
 
     if not mp3_path.exists():
         chunks = chunk_text(_wrap_with_preamble(bm), max_chars=cfg.max_chunk_chars)
         voice = pick_voice(cfg.openai_tts_voices)
+        log.info("Synthesizing %d chunk(s) with voice %r", len(chunks), voice)
         with tempfile.TemporaryDirectory(prefix=f"karakeep_tts_{title}_") as tmp:
             chunk_paths = synthesize_article(
                 client=openai_client,
@@ -66,9 +72,14 @@ def process_bookmark(
                 instructions=cfg.openai_tts_instructions,
                 output_dir=Path(tmp),
             )
+            log.info("Concatenating %d MP3 chunk(s) -> %s", len(chunk_paths), mp3_path.name)
             concat_mp3s(chunk_paths, mp3_path)
         tag_mp3(mp3_path, title=bm.title)
+    else:
+        log.info("MP3 already exists for %s; skipping TTS, retrying upload", bm.id)
 
+    log.info("Uploading %s to Overcast", mp3_path.name)
     upload_to_overcast(mp3_path, email=cfg.overcast_email, password=cfg.overcast_password)
     marker_path.write_text("")
     karakeep.delete_bookmark(cfg.bookmark_list_name, bm.id)
+    log.info("Done with bookmark %s", bm.id)
