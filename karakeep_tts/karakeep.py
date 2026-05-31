@@ -26,14 +26,22 @@ class Bookmark:
 
     @classmethod
     def from_api(cls, data: dict) -> "Bookmark | None":
+        bm_id = data.get("id", "?")
         try:
-            content = data["content"]
+            content = data.get("content")
+            if not isinstance(content, dict):
+                log.info("Skipping %s: content field is %r (type %s)",
+                         bm_id, content, type(content).__name__)
+                return None
             html = content.get("htmlContent")
             url = content.get("url")
             if not html or not url:
-                # Bookmark hasn't been scraped yet, or isn't an article (e.g. video).
+                log.info("Skipping %s: content keys=%s, htmlContent=%s, url=%s",
+                         bm_id, sorted(content.keys()),
+                         "present" if html else f"{html!r}",
+                         "present" if url else f"{url!r}")
                 return None
-            title = content.get("title") or content.get("description") or data["id"]
+            title = content.get("title") or content.get("description") or bm_id
             return cls(
                 id=data["id"],
                 title=title,
@@ -41,7 +49,8 @@ class Bookmark:
                 text=_html2text.handle(html),
                 description=content.get("description"),
             )
-        except (KeyError, TypeError, AttributeError):
+        except (KeyError, TypeError, AttributeError) as exc:
+            log.warning("Skipping %s: parse error %s", bm_id, exc)
             return None
 
 
