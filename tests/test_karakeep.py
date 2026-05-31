@@ -69,6 +69,57 @@ def test_get_bookmarks_skips_malformed():
 
 
 @responses.activate
+def test_get_bookmarks_skips_when_htmlcontent_is_null():
+    """Karakeep returns htmlContent=null for unscraped or non-article bookmarks
+    (e.g. YouTube). Must be skipped, not crashed on."""
+    responses.get(
+        "https://karakeep.example.com/api/v1/lists",
+        json={"lists": [{"id": "L2", "name": "Instapaper"}]},
+    )
+    responses.get(
+        "https://karakeep.example.com/api/v1/lists/L2/bookmarks",
+        json={"bookmarks": [
+            {"id": "B1", "content": {"title": "Unscraped", "url": "https://example.com",
+                                     "htmlContent": None}},
+            {"id": "B2", "content": {"title": "OK", "url": "https://example.com/b",
+                                     "htmlContent": "<p>body</p>"}},
+            {"id": "B3", "content": {"title": "NoUrl", "url": None,
+                                     "htmlContent": "<p>x</p>"}},
+        ]},
+    )
+    client = KarakeepClient(host="karakeep.example.com", api_key="k")
+    bms = list(client.get_bookmarks("Instapaper"))
+    assert [b.id for b in bms] == ["B2"]
+
+
+@responses.activate
+def test_get_bookmarks_continues_past_individual_parse_failure(monkeypatch):
+    """A bookmark that raises inside from_api must not poison the whole iteration."""
+    responses.get(
+        "https://karakeep.example.com/api/v1/lists",
+        json={"lists": [{"id": "L2", "name": "Instapaper"}]},
+    )
+    responses.get(
+        "https://karakeep.example.com/api/v1/lists/L2/bookmarks",
+        json={"bookmarks": [
+            {"id": "BAD"},
+            {"id": "B2", "content": {"title": "OK", "url": "u", "htmlContent": "<p>x</p>"}},
+        ]},
+    )
+    # Force from_api to raise on the first bookmark
+    original = Bookmark.from_api
+    def flaky(data):
+        if data.get("id") == "BAD":
+            raise RuntimeError("boom")
+        return original(data)
+    monkeypatch.setattr(Bookmark, "from_api", staticmethod(flaky))
+
+    client = KarakeepClient(host="karakeep.example.com", api_key="k")
+    bms = list(client.get_bookmarks("Instapaper"))
+    assert [b.id for b in bms] == ["B2"]
+
+
+@responses.activate
 def test_delete_from_list():
     responses.get(
         "https://karakeep.example.com/api/v1/lists",

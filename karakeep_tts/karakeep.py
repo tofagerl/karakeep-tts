@@ -1,10 +1,13 @@
 """Karakeep API client. Wraps the subset of endpoints we need."""
 from __future__ import annotations
+import logging
 from dataclasses import dataclass
 from typing import Iterator
 
 import html2text
 import requests
+
+log = logging.getLogger(__name__)
 
 _html2text = html2text.HTML2Text()
 _html2text.ignore_links = True
@@ -25,15 +28,20 @@ class Bookmark:
     def from_api(cls, data: dict) -> "Bookmark | None":
         try:
             content = data["content"]
+            html = content.get("htmlContent")
+            url = content.get("url")
+            if not html or not url:
+                # Bookmark hasn't been scraped yet, or isn't an article (e.g. video).
+                return None
             title = content.get("title") or content.get("description") or data["id"]
             return cls(
                 id=data["id"],
                 title=title,
-                url=content["url"],
-                text=_html2text.handle(content["htmlContent"]),
+                url=url,
+                text=_html2text.handle(html),
                 description=content.get("description"),
             )
-        except (KeyError, TypeError):
+        except (KeyError, TypeError, AttributeError):
             return None
 
 
@@ -73,7 +81,11 @@ class KarakeepClient:
         list_id = self.get_list_id(list_name)
         data = self._request(f"lists/{list_id}/bookmarks")
         for raw in data.get("bookmarks", []):
-            bm = Bookmark.from_api(raw)
+            try:
+                bm = Bookmark.from_api(raw)
+            except Exception as exc:
+                log.warning("Skipping malformed bookmark %s: %s", raw.get("id"), exc)
+                continue
             if bm is not None:
                 yield bm
 
